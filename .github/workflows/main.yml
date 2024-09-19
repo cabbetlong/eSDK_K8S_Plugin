@@ -17,6 +17,7 @@ jobs:
         go-version: '1.22.1'
     - name: Build
       run: |
+        go env
         chmod +x ./build.sh
         ./build.sh 4.5.0 X86
         ls
