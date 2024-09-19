@@ -10,19 +10,21 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout source
+    - name: Checkout Source
       uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
         go-version: '1.22.1'
-    - name: Get version
-      id: get_version
-      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+    - name: Get Version
+      id: branch-names
+      uses: tj-actions/branch-names@v8
+      with:
+        strip_tag_prefix: v
     - name: Build
       run: |
         chmod +x ./build.sh
-        ./build.sh ${{ steps.get_version.outputs.VERSION }} X86
-        ./build.sh ${{ steps.get_version.outputs.VERSION }} ARM
+        ./build.sh ${{ steps.branch-names.outputs.tag }} X86
+        ./build.sh ${{ steps.branch-names.outputs.tag }} ARM
     - name: Create Release and Upload Release Asset
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
@@ -30,5 +32,5 @@ jobs:
         body: TODO New Release.
         draft: true
         files: |
-          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_${{ steps.get_version.outputs.VERSION }}_X86_64.zip
-          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_${{ steps.get_version.outputs.VERSION }}_ARM_64.zip
+          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V${{ steps.branch-names.outputs.tag }}_X86_64.zip
+          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V${{ steps.branch-names.outputs.tag }}_ARM_64.zip
