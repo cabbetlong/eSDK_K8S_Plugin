@@ -25,6 +25,7 @@ PLATFORM=$2
 package_name="eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V${VER}_${PLATFORM}_64"
 
 echo "Start to make with Makefile"
+go mod tidy
 make -f Makefile VER=$1 PLATFORM=$2
 
 echo "Platform confirmation"
