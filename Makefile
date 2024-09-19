@@ -42,6 +42,7 @@ PREPARE:
 
 BUILD:
 # usage: [env] go build [-o output] [flags] packages
+	echo $(GOPATH)
 	${env} go build -o ./${PACKAGE}/bin/huawei-csi ${flag} ./csi
 	${env} go build -o ./${PACKAGE}/bin/storage-backend-controller ${flag} ./cmd/storage-backend-controller
 	${env} go build -o ./${PACKAGE}/bin/storage-backend-sidecar ${flag} ./cmd/storage-backend-sidecar
