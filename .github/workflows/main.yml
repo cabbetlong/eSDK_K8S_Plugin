@@ -20,6 +20,7 @@ jobs:
         go env
         chmod +x ./build.sh
         ./build.sh 4.5.0 X86
+        ./build.sh 4.5.0 ARM
         ls
     - name: Create Release and Upload Release Asset
       uses: softprops/action-gh-release@v1
@@ -31,4 +32,5 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V4.5.0_X86_64
+          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V4.5.0_X86_64.zip
+          eSDK_Huawei_Storage_Kubernetes_CSI_Plugin_V4.5.0_ARM_64.zip
