@@ -17,6 +17,7 @@ jobs:
         go-version: '1.22.1'
     - name: Build
       run: |
+        ls -l
         chmod +x ./${{github.repository}}/build.sh
         ./${{github.repository}}/build.sh 4.5.0 X86
     - name: Create Release and Upload Release Asset
