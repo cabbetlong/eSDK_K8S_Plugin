@@ -1,4 +1,4 @@
-module https://github.com/cabbetlong/eSDK_K8S_Plugin
+module github.com/cabbetlong/eSDK_K8S_Plugin
 
 go 1.20
 
