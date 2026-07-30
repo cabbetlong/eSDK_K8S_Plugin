@@ -689,6 +689,7 @@ spec:
             - "--volume-modify-retry-base-delay=5s"
             - "--volume-modify-retry-max-delay=5m"
             - "--volume-modify-reconcile-delay=1s"
+            - "--worker-threads=10"
             - "--kube-api-qps=5"
             - "--kube-api-burst=10"
           volumeMounts:

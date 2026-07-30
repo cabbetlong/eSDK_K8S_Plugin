@@ -753,9 +753,10 @@ spec:
             - "--max-backups={{ int ((.Values.csiDriver).controllerLogging).maxBackups | default 9 }}"
             - "--dr-endpoint=$(DRCSI_ENDPOINT)"
             - "--enable-volume-modify={{ .Values.controller.csiExtender.volumeModify.enabled | default false}}"
-            - "--volume-modify-retry-base-delay={{ ((.Values.csiExtender).volumeModify).retryBaseDelay | default "5s" }}"
-            - "--volume-modify-retry-max-delay={{ ((.Values.csiExtender).volumeModify).retryMaxDelay | default "5m" }}"
-            - "--volume-modify-reconcile-delay={{ ((.Values.csiExtender).volumeModify).reconcileDelay | default "1s" }}"
+            - "--volume-modify-retry-base-delay={{ ((.Values.controller.csiExtender).volumeModify).retryBaseDelay | default "5s" }}"
+            - "--volume-modify-retry-max-delay={{ ((.Values.controller.csiExtender).volumeModify).retryMaxDelay | default "5m" }}"
+            - "--volume-modify-reconcile-delay={{ ((.Values.controller.csiExtender).volumeModify).reconcileDelay | default "1s" }}"
+            - "--worker-threads={{ ((.Values.controller.csiExtender).volumeModify).workerThreads | default 10 }}"
             {{ if gt ( (.Values.controller).controllerCount | int ) 1 }}
             - "--enable-leader-election=true"
             {{ else }}

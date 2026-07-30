@@ -22,17 +22,17 @@ import (
 	"time"
 )
 
-func TestWorkerThreads(t *testing.T) {
+func TestContentWorkerThreads(t *testing.T) {
 	// arrange
 	ctrl := &VolumeModifyController{}
 	workThreads := 10
 
 	// action
-	WorkerThreads(workThreads)(ctrl)
+	ContentWorkerThreads(workThreads)(ctrl)
 
 	// assert
-	if ctrl.workerThreads != workThreads {
-		t.Errorf("TestWorkerThreads failed, want %d, but got %d", workThreads, ctrl.workerThreads)
+	if ctrl.contentWorkerThreads != workThreads {
+		t.Errorf("TestContentWorkerThreads failed, want %d, but got %d", workThreads, ctrl.contentWorkerThreads)
 	}
 }
 

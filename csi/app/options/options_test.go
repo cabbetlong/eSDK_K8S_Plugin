@@ -161,8 +161,9 @@ func TestValidateFlags_QPSGteBurst(t *testing.T) {
 func TestValidateFlags_ValidInput(t *testing.T) {
 	// Arrange
 	opt := &serviceOptions{
-		kubeApiQps:   5.0,
-		kubeApiBurst: 10,
+		kubeApiQps:    5.0,
+		kubeApiBurst:  10,
+		workerThreads: 10,
 	}
 
 	// Act

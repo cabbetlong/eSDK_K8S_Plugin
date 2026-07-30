@@ -37,8 +37,10 @@ import (
 )
 
 const (
-	waitUntilTimeout  = 6 * time.Hour
-	waitUntilInterval = 5 * time.Second
+	waitUntilTimeout          = 6 * time.Hour
+	waitUntilTimeoutForModify = 12 * time.Hour
+	waitUntilInterval         = 5 * time.Second
+	maxWaitInterval           = 2 * time.Minute
 
 	enableHyperMetroSnap = "enableHyperMetroSnap"
 	invalidSpeed         = 0
@@ -1128,7 +1130,8 @@ func (p *SAN) createHyperMetro(ctx context.Context,
 		return nil, err
 	}
 
-	err = p.waitHyperMetroSyncFinish(ctx, pairID)
+	_, isModify := params["fromModify"]
+	err = p.waitHyperMetroSyncFinish(ctx, pairID, isModify)
 	if err != nil {
 		log.AddContext(ctx).Errorf("Wait hypermetro pair %s sync done error: %v", pairID, err)
 		p.cli.DeleteHyperMetroPair(ctx, pairID, true)
@@ -1181,9 +1184,7 @@ func (p *SAN) createHyperMetroPair(ctx context.Context, params map[string]interf
 	var pairID string
 	var ok bool
 	if pairParam.pair == nil {
-		_, needFirstSync1 := params["clonefrom"]
-		_, needFirstSync2 := params["fromSnapshot"]
-		needFirstSync := needFirstSync1 || needFirstSync2
+		needFirstSync := shouldFirstSync(params)
 		data := map[string]interface{}{
 			"DOMAINID":       pairParam.domainID,
 			"HCRESOURCETYPE": 1,
@@ -1226,8 +1227,19 @@ func (p *SAN) createHyperMetroPair(ctx context.Context, params map[string]interf
 	return pairID, nil
 }
 
-func (p *SAN) waitHyperMetroSyncFinish(ctx context.Context, pairID string) error {
-	err := utils.WaitUntil(func() (bool, error) {
+// FirstSync is required when the source LUN is not empty
+func shouldFirstSync(params map[string]interface{}) bool {
+	if params == nil {
+		return false
+	}
+	_, isClone := params["clonefrom"]
+	_, isSnapshot := params["fromSnapshot"]
+	_, isModify := params["fromModify"]
+	return isClone || isSnapshot || isModify
+}
+
+func (p *SAN) waitHyperMetroSyncFinish(ctx context.Context, pairID string, isModify bool) error {
+	function := func() (bool, error) {
 		pair, err := p.cli.GetHyperMetroPair(ctx, pairID)
 		if err != nil {
 			return false, err
@@ -1263,7 +1275,14 @@ func (p *SAN) waitHyperMetroSyncFinish(ctx context.Context, pairID string) error
 		} else {
 			return true, nil
 		}
-	}, waitUntilTimeout, waitUntilInterval)
+	}
+
+	var err error
+	if isModify {
+		err = utils.WaitUntilWithBackoff(function, waitUntilTimeoutForModify, waitUntilInterval, maxWaitInterval)
+	} else {
+		err = utils.WaitUntil(function, waitUntilTimeout, waitUntilInterval)
+	}
 
 	if err != nil {
 		p.cli.StopHyperMetroPair(ctx, pairID)
@@ -2043,6 +2062,10 @@ func (p *SAN) preModify(ctx context.Context, params map[string]interface{}) erro
 	err = p.setWorkLoadID(ctx, p.cli, params)
 	if err != nil {
 		return err
+	}
+
+	if params != nil {
+		params["fromModify"] = params["name"]
 	}
 
 	return nil

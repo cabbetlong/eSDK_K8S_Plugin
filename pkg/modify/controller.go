@@ -57,7 +57,7 @@ const (
 	defaultProvisioner = "csi.huawei.com"
 
 	// defaultWorkerThreads is used when option function WorkerThreads is omitted
-	defaultWorkerThreads = 4
+	defaultWorkerThreads = 10
 
 	// claimResource is used uniquely identifies claim work queue
 	claimResource = "vmc"
@@ -93,7 +93,8 @@ type VolumeModifyController struct {
 	retryMaxDelay             time.Duration
 	retryBaseDelay            time.Duration
 	reconcileClaimStatusDelay time.Duration
-	workerThreads             int
+	claimWorkerThreads        int
+	contentWorkerThreads      int
 	provisioner               string
 }
 
@@ -107,7 +108,8 @@ func NewVolumeModifyController(ctx context.Context, client kubernetes.Interface,
 		reSyncPeriod:              defaultReSyncPeriod,
 		retryBaseDelay:            defaultRetryBaseDelay,
 		retryMaxDelay:             defaultRetryMaxDelay,
-		workerThreads:             defaultWorkerThreads,
+		claimWorkerThreads:        defaultWorkerThreads,
+		contentWorkerThreads:      defaultWorkerThreads,
 		reconcileClaimStatusDelay: defaultReconcileClaimStatusDelay,
 		provisioner:               defaultProvisioner,
 	}
@@ -161,8 +163,11 @@ func (ctrl *VolumeModifyController) Run(ctx context.Context, stopCh <-chan struc
 	}
 
 	log.AddContext(ctx).Infoln("starting workers")
-	for i := 0; i < ctrl.workerThreads; i++ {
+	for i := 0; i < ctrl.claimWorkerThreads; i++ {
 		go wait.Until(func() { ctrl.claimWorker.Run(ctx) }, time.Second, stopCh)
+	}
+
+	for i := 0; i < ctrl.contentWorkerThreads; i++ {
 		go wait.Until(func() { ctrl.contentWorker.Run(ctx) }, time.Second, stopCh)
 	}
 
@@ -234,10 +239,10 @@ func (ctrl *VolumeModifyController) enqueueContent(obj interface{}) {
 	}
 }
 
-// WorkerThreads used to configure the number of working threads.
-func WorkerThreads(workerThreads int) func(controller *VolumeModifyController) {
+// ContentWorkerThreads used to configure the number of vmct working threads.
+func ContentWorkerThreads(workerThreads int) func(controller *VolumeModifyController) {
 	return func(ctr *VolumeModifyController) {
-		ctr.workerThreads = workerThreads
+		ctr.contentWorkerThreads = workerThreads
 	}
 }
 

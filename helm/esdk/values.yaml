@@ -121,6 +121,11 @@ controller:
       retryMaxDelay: 5m
       # Duration, volume modify resource reconcile delay time
       reconcileDelay: 1s
+      # workerThreads: Define the number of volume modify controller worker threads
+      # Allowed values: n, where 0 < n <= 100
+      # Default value: 10
+      # Recommended value: 10
+      workerThreads: 10
 
   exportCsiService:
     # enabled: Enable/Disable running the CSI exported server on service, so that other pod can call CSI

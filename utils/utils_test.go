@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -323,4 +324,57 @@ func TestStrToBool_InvalidString(t *testing.T) {
 
 	// assert
 	assert.False(t, result)
+}
+
+func TestWaitUntilWithBackoff_Success(t *testing.T) {
+	// arrange
+	callCount := 0
+	f := func() (bool, error) {
+		callCount++
+		if callCount < 3 {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	// mock
+	patches := gomonkey.ApplyFuncReturn(time.Sleep)
+	defer patches.Reset()
+
+	// action
+	gotErr := WaitUntilWithBackoff(f, 5*time.Second, 100*time.Millisecond, time.Second)
+
+	// assert
+	assert.Nil(t, gotErr)
+}
+
+func TestWaitUntilWithBackoff_FunctionReturnsError(t *testing.T) {
+	// arrange
+	wantErr := errors.New("function error")
+
+	// action
+	gotErr := WaitUntilWithBackoff(func() (bool, error) {
+		return false, wantErr
+	}, 5*time.Second, 100*time.Millisecond, time.Second)
+
+	// assert
+	assert.Equal(t, wantErr, gotErr)
+}
+
+func TestWaitUntilWithBackoff_WaitTimeout(t *testing.T) {
+	// arrange
+	f := func() (bool, error) {
+		return false, nil
+	}
+	wantErr := errors.New("wait timeout")
+
+	// mock
+	patches := gomonkey.ApplyFuncReturn(time.Sleep)
+	defer patches.Reset()
+
+	// action
+	gotErr := WaitUntilWithBackoff(f, 50*time.Millisecond, time.Millisecond, 10*time.Millisecond)
+
+	// assert
+	assert.Equal(t, wantErr, gotErr)
 }

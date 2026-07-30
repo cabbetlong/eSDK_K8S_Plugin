@@ -109,7 +109,7 @@ func runController(ctx context.Context, crdClient *clientSet.Clientset, k8sClien
 	controller := modify.NewVolumeModifyController(ctx, k8sClient, crdClient, factory,
 		modify.Provisioner(provider),
 		modify.ClientOfModify(modifyClient),
-		modify.WorkerThreads(app.GetGlobalConfig().WorkerThreads),
+		modify.ContentWorkerThreads(app.GetGlobalConfig().WorkerThreads),
 		modify.ReSyncPeriod(app.GetGlobalConfig().VolumeModifyReSyncPeriod),
 		modify.RetryMaxDelay(app.GetGlobalConfig().VolumeModifyRetryMaxDelay),
 		modify.RetryBaseDelay(app.GetGlobalConfig().VolumeModifyRetryBaseDelay),

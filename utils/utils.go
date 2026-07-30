@@ -267,10 +267,51 @@ func WaitUntil(f func() (bool, error), timeout time.Duration, interval time.Dura
 
 			select {
 			case <-timeout:
-				done <- fmt.Errorf("Wait timeout")
+				done <- fmt.Errorf("wait timeout")
 				return
 			default:
 				time.Sleep(interval)
+			}
+		}
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	}
+}
+
+// WaitUntilWithBackoff executes the func until timeout with backoff,
+// it also breaks while the func return true or an err.
+func WaitUntilWithBackoff(f func() (bool, error), timeout, minInterval, maxInterval time.Duration) error {
+	done := make(chan error)
+	defer close(done)
+	go func() {
+		timeoutCh := time.After(timeout)
+		interval := minInterval
+
+		for {
+			condition, err := f()
+			if err != nil {
+				done <- err
+				return
+			}
+
+			if condition {
+				done <- nil
+				return
+			}
+
+			select {
+			case <-timeoutCh:
+				done <- fmt.Errorf("wait timeout")
+				return
+			default:
+				time.Sleep(interval)
+				interval *= 2
+				if interval > maxInterval {
+					interval = maxInterval
+				}
 			}
 		}
 	}()

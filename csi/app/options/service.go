@@ -30,6 +30,7 @@ import (
 const (
 	defaultRpcTimeout                   = 1 * time.Minute
 	defaultWorkerThreads                = 10
+	maxWorkerThreads                    = 100
 	defaultNodeWorkerThreads            = 4
 	defaultReSyncPeriods                = 2 * time.Minute
 	defaultLeaderRetryPeriod            = 2 * time.Second
@@ -225,6 +226,7 @@ func (opt *serviceOptions) ValidateFlags() []error {
 
 	qps := opt.kubeApiQps
 	burst := opt.kubeApiBurst
+	threads := opt.workerThreads
 
 	if qps < 0 {
 		errs = append(errs, fmt.Errorf("kube-api-qps must be >= 0, got %.2f", qps))
@@ -235,6 +237,9 @@ func (opt *serviceOptions) ValidateFlags() []error {
 	if burst > 0 && qps >= float64(burst) {
 		errs = append(errs, fmt.Errorf("kube-api-burst (%d) must be > kube-api-qps (%.2f)",
 			burst, qps))
+	}
+	if threads <= 0 || threads > maxWorkerThreads {
+		errs = append(errs, fmt.Errorf("worker-threads must be in range (0, %d], got %d", maxWorkerThreads, threads))
 	}
 
 	return errs

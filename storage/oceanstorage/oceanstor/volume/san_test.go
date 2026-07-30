@@ -694,6 +694,7 @@ func TestSAN_Modify_Success(t *testing.T) {
 	metroCli.EXPECT().CreateLun(ctx, gomock.Any()).Return(remoteLun, nil)
 	cli.EXPECT().GetHyperMetroPairByLocalObjID(ctx, "local-lun-123").Return(nil, nil)
 	cli.EXPECT().CreateHyperMetroPair(ctx, gomock.Any()).Return(map[string]interface{}{"ID": "pair-123"}, nil)
+	cli.EXPECT().SyncHyperMetroPair(ctx, "pair-123").Return(nil)
 	cli.EXPECT().GetHyperMetroPair(ctx, "pair-123").Return(map[string]interface{}{
 		"HEALTHSTATUS":  "1",
 		"RUNNINGSTATUS": hyperMetroPairRunningStatusNormal,
@@ -930,6 +931,7 @@ func TestSAN_Modify_WithQoS_Success(t *testing.T) {
 	metroCli.EXPECT().GetLunByID(ctx, "remote-lun-456").Return(remoteLunWithQoS, nil)
 	cli.EXPECT().GetHyperMetroPairByLocalObjID(ctx, "local-lun-123").Return(nil, nil)
 	cli.EXPECT().CreateHyperMetroPair(ctx, gomock.Any()).Return(map[string]interface{}{"ID": "pair-123"}, nil)
+	cli.EXPECT().SyncHyperMetroPair(ctx, "pair-123").Return(nil)
 	cli.EXPECT().GetHyperMetroPair(ctx, "pair-123").Return(map[string]interface{}{
 		"HEALTHSTATUS":  "1",
 		"RUNNINGSTATUS": hyperMetroPairRunningStatusNormal,
