@@ -16,12 +16,19 @@ make coverage            # coverage profile + HTML report (integration layer)
 make test                # WIP: vet + full repo (not fully green yet, see below)
 ```
 
-The `test/e2e` milestone covers **real sync job + real gRPC
-CreateVolume/DeleteVolume against a fake OceanStor SAN**, with the Kubernetes
-side backed by the standard fake clientset (no envtest binary needed). Content
-is created directly; the Claim→Content storage-backend-controller reconcile is
-a planned follow-up that will need envtest/kind because it relies on real
-finalizer/status/GC semantics.
+The `test/e2e` milestone covers:
+
+- **Controller side**: real sync job + real gRPC CreateVolume/DeleteVolume
+  against a fake OceanStor SAN; Kubernetes side backed by the standard fake
+  clientset (no envtest binary needed). Content is created directly; the
+  Claim→Content storage-backend-controller reconcile is a planned follow-up
+  that will need envtest/kind.
+- **Node side (hermetic)**: NodeGetCapabilities / NodeGetInfo /
+  NodeGetVolumeStats and an NFS Stage → Publish → Unpublish → Unstage chain
+  through the real gRPC node server. OS operations are injected via the
+  replaceable seams `utils.GetHostNameFunc`, `connector/utils.MountToDirFunc`
+  and `connector/utils.UnmountFunc`, so the tests need no privileges or real
+  mounts/arrays.
 
 Coverage baseline (recorded, not enforced):
 

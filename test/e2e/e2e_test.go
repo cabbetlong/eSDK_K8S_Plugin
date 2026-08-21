@@ -79,6 +79,10 @@ func (e *e2eK8s) GetVolumeConfiguration(_ context.Context, _ string) (map[string
 	return map[string]string{}, nil
 }
 
+func (e *e2eK8s) GetNodeTopology(_ context.Context, _ string) (map[string]string, error) {
+	return map[string]string{"topology.kubernetes.io/zone": "fake-zone"}, nil
+}
+
 func TestE2E_OceanStorSan_CreateDeleteVolume(t *testing.T) {
 	fakeSAN := storagefake.NewOceanStorSAN(poolName)
 	defer fakeSAN.Close()

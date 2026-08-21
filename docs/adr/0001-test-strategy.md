@@ -28,6 +28,11 @@ Adopt a two-tier test strategy and progressively remove gomonkey:
    StorageBackendContent directly. Envtest/kind are intentionally deferred to
    Phase 2.1, when real finalizer/status/GC semantics matter and fake clients
    are no longer faithful.
+   The **node side** is covered with the same hermetic approach: real gRPC node
+   server + fake k8s client, with OS operations injected through replaceable
+   seams (`utils.GetHostNameFunc`, `connector/utils.MountToDirFunc`,
+   `connector/utils.UnmountFunc`). A real-node E2E (kind + privileged) remains
+   a future opt-in for OS-sensitive paths (iSCSI/NVMe/FC, multipath, real mount).
 
 3. **Remove gomonkey progressively**, integration layer first, repo-wide in
    batches. Injection strategy: replaceable package vars first, constructor

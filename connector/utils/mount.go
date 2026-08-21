@@ -93,8 +93,17 @@ func BindMountRawBlockDevice(ctx context.Context, sourcePath, targetPath string,
 	return Mount(ctx, sourcePath, targetPath, mountParams, false)
 }
 
+// MountToDirFunc is the injectable implementation of MountToDir. Tests can
+// replace it with a hermetic stand-in (this is one of the "replaceable var"
+// seams used to remove gomonkey; see docs/adr/0001-test-strategy.md).
+var MountToDirFunc = mountToDir
+
 // MountToDir mounts source to target which is a directory.
 func MountToDir(ctx context.Context, sourcePath, targetPath string, flags MountParam, checkSourcePath bool) error {
+	return MountToDirFunc(ctx, sourcePath, targetPath, flags, checkSourcePath)
+}
+
+func mountToDir(ctx context.Context, sourcePath, targetPath string, flags MountParam, checkSourcePath bool) error {
 	err := preMount(sourcePath, targetPath, checkSourcePath)
 	if err != nil {
 		return err
@@ -152,8 +161,16 @@ func Mount(ctx context.Context, sourcePath, targetPath string, flags MountParam,
 	return nil
 }
 
+// UnmountFunc is the injectable implementation of Unmount. Tests can replace
+// it with a hermetic stand-in (replaceable-var seam; see ADR-0001).
+var UnmountFunc = unmount
+
 // Unmount unmounts the target path
 func Unmount(ctx context.Context, targetPath string) error {
+	return UnmountFunc(ctx, targetPath)
+}
+
+func unmount(ctx context.Context, targetPath string) error {
 	mounted, err := connector.MountPathIsExist(ctx, targetPath)
 	if err != nil {
 		return err

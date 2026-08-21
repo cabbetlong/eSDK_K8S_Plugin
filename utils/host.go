@@ -54,8 +54,16 @@ func ChmodFsPermission(ctx context.Context, targetPath, fsPermission string) {
 	log.AddContext(ctx).Infof("Change directory [%s] to [%s] permission success.", targetPath, fsPermission)
 }
 
+// GetHostNameFunc is the injectable implementation of GetHostName. Tests can
+// replace it (replaceable-var seam; see docs/adr/0001-test-strategy.md).
+var GetHostNameFunc = getHostName
+
 // GetHostName retrieves the hostname of the system.
 func GetHostName(ctx context.Context) (string, error) {
+	return GetHostNameFunc(ctx)
+}
+
+func getHostName(ctx context.Context) (string, error) {
 	hostname, err := ExecShellCmd(ctx, "hostname | xargs echo -n")
 	if err != nil {
 		return "", err
