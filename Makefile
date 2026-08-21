@@ -71,3 +71,36 @@ GENERATE:
      -destination ./test/mocks/mock_client/aseries.go OceanASeriesClientInterface
 	mockgen -source ./storage/dme/aseries/client/client.go -package mock_client \
 	  -destination ./test/mocks/mock_client/dme.go DMEASeriesClientInterface
+# ---------- Testing ----------
+# NOTE: Go 1.26 (go.mod >= 1.26) breaks several gomonkey-based tests due to inlining.
+# Full-repo `make test` is therefore NOT fully green yet; track status in test/README.md
+# and the gomonkey migration in docs/adr/0001-test-strategy.md.
+GO ?= go
+TEST_INTEGRATION_PKGS ?= ./test/integration/...
+E2E_PKGS ?= ./test/e2e/...
+
+.PHONY: test test-integration test-e2e coverage setup-envtest
+
+test: ## Run vet + all unit & integration tests (WIP: known failures under Go 1.26)
+	$(GO) vet ./...
+	$(GO) test ./... -count=1 -coverprofile=coverage.out
+	$(GO) tool cover -func=coverage.out
+
+test-integration: ## Run the fast in-process integration layer (Phase 1 gate)
+	$(GO) test $(TEST_INTEGRATION_PKGS) -count=1
+
+ENVTEST_K8S_VERSION ?= 1.34.1
+ENVTEST_TOOL := $(GO) run sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.22
+
+test-e2e: ## Run envtest-based E2E layer (downloads envtest binaries on first run)
+	KUBEBUILDER_ASSETS="$$($(ENVTEST_TOOL) use $(ENVTEST_K8S_VERSION) -p path)" $(GO) test -tags=e2e $(E2E_PKGS) -count=1
+
+COVERPKG ?= ./csi/...,./storage/...,./utils/...,./pkg/...
+
+coverage: ## Generate coverage report for the integration layer (measures csi/storage/utils/pkg)
+	$(GO) test $(TEST_INTEGRATION_PKGS) -count=1 -coverprofile=coverage.out -coverpkg=$(COVERPKG)
+	$(GO) tool cover -func=coverage.out
+	$(GO) tool cover -html=coverage.out -o coverage.html
+
+setup-envtest: ## Download pinned envtest binaries (kube-apiserver/etcd)
+	$(ENVTEST_TOOL) use $(ENVTEST_K8S_VERSION) -p path

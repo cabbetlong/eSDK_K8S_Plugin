@@ -163,6 +163,11 @@ func NewClient(ctx context.Context, clientConfig *NewClientConfig) *RestClient {
 }
 
 // NewIRestClient returns a RestClient as IRestClient
+//
+// NOTE: //go:noinline is a temporary workaround for gomonkey patching under Go 1.26.
+// It should be removed when the NewIRestClient seam is migrated to DI (see docs/adr).
+//
+//go:noinline
 func NewIRestClient(ctx context.Context, clientConfig *NewClientConfig) IRestClient {
 	return NewClient(ctx, clientConfig)
 }

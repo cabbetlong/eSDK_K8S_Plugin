@@ -644,6 +644,11 @@ func (p *DTree) getDtreeID(ctx context.Context, parentName, vstoreID, dTreeName 
 }
 
 // AutoManageAuthClient manages auth client for nfs automatically
+//
+// NOTE: //go:noinline is a temporary workaround for gomonkey patching under Go 1.26.
+// It should be removed when the volume seam is migrated to DI (see docs/adr).
+//
+//go:noinline
 func (p *DTree) AutoManageAuthClient(ctx context.Context, volume, parentName string, ips []string,
 	accessVal constants.AuthClientAccessVal) error {
 	dtreeShare := parentName + "/" + volume

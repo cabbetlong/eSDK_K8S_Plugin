@@ -11,3 +11,7 @@ docs/site/go.sum
 docs/site/public
 docs/site/resources
 docs/site/.hugo_build.lock
+
+# Test artifacts
+coverage.out
+coverage.html
