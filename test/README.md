@@ -5,22 +5,23 @@ This project keeps two clearly separated test layers:
 | Layer | Directory | Scope | Requires |
 |-------|-----------|-------|----------|
 | Fast integration | `test/integration/` | In-process CSI RPC + mock storage clients; fast, no external deps | `go test` |
-| E2E (opt-in) | `test/e2e/` | Real kube-apiserver/etcd (envtest) + fake in-process storage server + real gRPC socket | `make test-e2e` (auto-downloads envtest) |
+| Hermetic integration | `test/e2e/` | Real CSI gRPC server + real sync job + real HTTP storage client against an in-memory fake Huawei array; Kubernetes side uses client-go fake clientset | `go test ./test/e2e/...` (no external binaries) |
 
 ## Commands
 
 ```sh
 make test-integration    # Phase 1 gate: fast integration layer
-make test-e2e            # envtest-based E2E: CreateVolume -> DeleteVolume (OceanStor SAN)
-make setup-envtest       # download pinned kube-apiserver/etcd binaries (KUBEBUILDER_ASSETS)
+make test-e2e            # hermetic integration: CreateVolume -> DeleteVolume (OceanStor SAN)
 make coverage            # coverage profile + HTML report (integration layer)
 make test                # WIP: vet + full repo (not fully green yet, see below)
 ```
 
-The E2E milestone currently covers **CRD + real sync job + real gRPC
-CreateVolume/DeleteVolume against a fake OceanStor SAN** (Content is created
-directly; the Claim→Content storage-backend-controller reconcile is a planned
-follow-up).
+The `test/e2e` milestone covers **real sync job + real gRPC
+CreateVolume/DeleteVolume against a fake OceanStor SAN**, with the Kubernetes
+side backed by the standard fake clientset (no envtest binary needed). Content
+is created directly; the Claim→Content storage-backend-controller reconcile is
+a planned follow-up that will need envtest/kind because it relies on real
+finalizer/status/GC semantics.
 
 Coverage baseline (recorded, not enforced):
 

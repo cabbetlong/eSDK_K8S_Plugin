@@ -17,15 +17,18 @@ Adopt a two-tier test strategy and progressively remove gomonkey:
 
 1. **Fast integration layer** (`test/integration/`) — in-process, mock-based,
    fast. Keep it green and make it the Phase 1 gate (`make test-integration`).
-2. **E2E layer** (`test/e2e/`, `//go:build e2e`) — envtest
-   (kube-apiserver/etcd) + a shared fake in-process storage server in
-   `test/fake/`, real gRPC socket, real StorageBackend controller
-   (uses envtest + a shared `test/fake/storage` OceanStor SAN REST server).
-   First milestone **implemented**: OceanStor SAN CreateVolume -> DeleteVolume
-   through the real CSI gRPC server and the real backend sync job
-   (`handler.BackendRegister.FetchAndRegisterAllBackend`). The storage-backend
-   controller Claim→Content reconcile loop is a follow-up (Phase 2.1); tests
-   currently create the StorageBackendContent directly.
+2. **Hermetic integration layer / E2E** (`test/e2e/`) — real CSI gRPC server +
+   the real backend sync job (`handler.BackendRegister.FetchAndRegisterAllBackend`)
+   + a real HTTP storage client against an in-memory fake Huawei array
+   (`test/fake/storage`). The Kubernetes side uses the standard client-go fake
+   clientset, so no test cluster or external binaries are required. First
+   milestone **implemented**: OceanStor SAN CreateVolume -> DeleteVolume through
+   the real CSI gRPC server. The storage-backend controller Claim→Content
+   reconcile loop is a follow-up (Phase 2.1); until then the tests create the
+   StorageBackendContent directly. Envtest/kind are intentionally deferred to
+   Phase 2.1, when real finalizer/status/GC semantics matter and fake clients
+   are no longer faithful.
+
 3. **Remove gomonkey progressively**, integration layer first, repo-wide in
    batches. Injection strategy: replaceable package vars first, constructor
    injection later. Migration order:

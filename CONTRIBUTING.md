@@ -23,6 +23,7 @@ make test
    the same change, never silently delete a failing test.
 3. When touching a test file that still uses gomonkey, migrate it to the new
    seam as part of that change (table-driven + shared fixture when sensible).
-4. New E2E tests go under `test/e2e` with `//go:build e2e` and are opt-in.
+4. New E2E/component-integration tests go under `test/e2e` (hermetic: fake k8s
+   client + fake storage + real gRPC; run with `make test-e2e`).
 
 See `test/README.md` and `docs/adr/0001-test-strategy.md` for details.

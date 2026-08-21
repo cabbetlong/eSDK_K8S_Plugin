@@ -1,5 +1,3 @@
-//go:build e2e
-
 /*
  *  Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
  *
@@ -16,8 +14,10 @@
  *  limitations under the License.
  */
 
-// Package e2e contains opt-in end-to-end tests. Files here build with the
-// `e2e` tag and are excluded from the default `go test ./...`.
+// Package e2e contains hermetic integration tests that exercise the real CSI
+// gRPC server, the real backend sync job and a real HTTP client against an
+// in-memory fake Huawei storage array. The Kubernetes side uses the standard
+// client-go fake clientset, so no test cluster or external binaries are needed.
 package e2e
 
 import (
@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -36,7 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	xuanwuv1 "github.com/Huawei/eSDK_K8S_Plugin/v4/client/apis/xuanwu/v1"
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/csi/app"
@@ -44,7 +43,8 @@ import (
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/csi/backend/cache"
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/csi/backend/handler"
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/csi/driver"
-	"github.com/Huawei/eSDK_K8S_Plugin/v4/pkg/client/clientset/versioned"
+	versioned "github.com/Huawei/eSDK_K8S_Plugin/v4/pkg/client/clientset/versioned"
+	clientfake "github.com/Huawei/eSDK_K8S_Plugin/v4/pkg/client/clientset/versioned/fake"
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/pkg/constants"
 	storagefake "github.com/Huawei/eSDK_K8S_Plugin/v4/test/fake/storage"
 	"github.com/Huawei/eSDK_K8S_Plugin/v4/utils/k8sutils"
@@ -68,8 +68,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// e2eK8s embeds the real k8sutils client but stubs GetVolumeConfiguration so
-// CreateVolume does not require a real PVC/PV in the envtest cluster.
+// e2eK8s embeds the k8sutils client but stubs GetVolumeConfiguration so
+// CreateVolume does not require a real PVC/PV (tests create volumes directly
+// through the CSI RPC like the existing fast integration layer does).
 type e2eK8s struct {
 	k8sutils.Interface
 }
@@ -83,50 +84,33 @@ func TestE2E_OceanStorSan_CreateDeleteVolume(t *testing.T) {
 	defer fakeSAN.Close()
 	fakeURL := fakeSAN.Start()
 
-	env := &envtest.Environment{
-		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "helm", "esdk", "crds", "backend")},
-		},
-		ErrorIfCRDPathMissing: true,
-	}
-	restCfg, err := env.Start()
-	if err != nil {
-		t.Skipf("envtest not available (run `make setup-envtest`): %v", err)
-	}
-	defer func() { _ = env.Stop() }()
+	kubeClient := k8sfake.NewSimpleClientset()
+	backendClient := clientfake.NewSimpleClientset()
 
-	kubeconfigPath := writeKubeconfig(t, env.KubeConfig, restCfg.Host)
+	// wire the global config like a real controller/CSI process would
+	k8sClient := &k8sutils.KubeClient{}
+	k8sClient.SetClient(kubeClient)
 
-	kubeClient, err := kubernetes.NewForConfig(restCfg)
-	require.NoError(t, err)
-
-	k8s, err := k8sutils.NewK8SUtils(kubeconfigPath, k8sutils.WithVolumeNamePrefix(""))
-	require.NoError(t, err)
-	backendUtils, err := k8sutils.NewBackendUtils(kubeconfigPath)
-	require.NoError(t, err)
-
-	// wire the global config like a real controller process would
 	globalCfg := cfg.MockCompletedConfig()
 	globalCfg.AppConfig.DriverName = constants.DefaultDriverName
 	globalCfg.AppConfig.Namespace = testNamespace
 	globalCfg.AppConfig.NodeName = driverNodeName
-	globalCfg.AppConfig.KubeConfig = kubeconfigPath
-	globalCfg.K8sUtils = &e2eK8s{Interface: k8s}
-	globalCfg.BackendUtils = backendUtils
+	globalCfg.K8sUtils = &e2eK8s{Interface: k8sClient}
+	globalCfg.BackendUtils = backendClient
 
 	origGetGlobalConfig := app.GetGlobalConfig
 	app.GetGlobalConfig = func() *cfg.CompletedConfig { return globalCfg }
 	defer func() { app.GetGlobalConfig = origGetGlobalConfig }()
 
 	ctx := context.Background()
-	createFixture(t, ctx, kubeClient, backendUtils, fakeURL)
+	createFixture(t, ctx, kubeClient, backendClient, fakeURL)
 
 	// real sync job: fetch StorageBackendContents and BuildBackend against the fake
 	cache.BackendCacheProvider.Clear(ctx)
 	handler.NewBackendRegister().FetchAndRegisterAllBackend(ctx)
 	require.Equal(t, 1, cache.BackendCacheProvider.Count(), "backend must be built into the cache")
 
-	// start the real CSI gRPC server
+	// start a real CSI gRPC server
 	driverSrv := driver.NewServer(constants.DefaultDriverName, constants.ProviderVersion, globalCfg.K8sUtils, driverNodeName)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -219,8 +203,7 @@ func createFixture(t *testing.T, ctx context.Context, kubeClient kubernetes.Inte
 	require.NoError(t, err)
 
 	// StorageBackendClaim (needed for Login to resolve secret meta by backend id)
-	claimClient := backendUtils.XuanwuV1().StorageBackendClaims(testNamespace)
-	_, err = claimClient.Create(ctx, &xuanwuv1.StorageBackendClaim{
+	_, err = backendUtils.XuanwuV1().StorageBackendClaims(testNamespace).Create(ctx, &xuanwuv1.StorageBackendClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: backendName, Namespace: testNamespace},
 		Spec: xuanwuv1.StorageBackendClaimSpec{
 			Provider:         constants.DefaultDriverName,
@@ -232,12 +215,9 @@ func createFixture(t *testing.T, ctx context.Context, kubeClient kubernetes.Inte
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	// StorageBackendContent (directly created; adr: Claim->Content is Phase 2.1)
-	contentClient := backendUtils.XuanwuV1().StorageBackendContents()
-	createdContent, err := contentClient.Create(ctx, &xuanwuv1.StorageBackendContent{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: backendName + "-content",
-		},
+	// StorageBackendContent (cluster-scoped; created directly - Claim->Content is Phase 2.1)
+	createdContent, err := backendUtils.XuanwuV1().StorageBackendContents().Create(ctx, &xuanwuv1.StorageBackendContent{
+		ObjectMeta: metav1.ObjectMeta{Name: backendName + "-content"},
 		Spec: xuanwuv1.StorageBackendContentSpec{
 			Provider:         constants.DefaultDriverName,
 			ConfigmapMeta:    testNamespace + "/" + configMapName,
@@ -266,55 +246,8 @@ func createFixture(t *testing.T, ctx context.Context, kubeClient kubernetes.Inte
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	// status is a subresource: persist it explicitly so the sync job sees Online=true
-	// and non-empty capabilities.
-	createdContent.Status = &xuanwuv1.StorageBackendContentStatus{
-		ContentName:      backendName + "@" + poolName,
-		Online:           true,
-		SN:               "fake-sn",
-		MaxClientThreads: "10",
-		Capabilities: map[string]bool{
-			"SupportThin": true,
-		},
-		Pools: []xuanwuv1.Pool{
-			{
-				Name: poolName,
-				Capacities: map[string]string{
-					"FreeCapacity":  "1048576",
-					"TotalCapacity": "1048576",
-				},
-			},
-		},
-	}
-	_, err = contentClient.UpdateStatus(ctx, createdContent, metav1.UpdateOptions{})
+	// fake clients keep the status set on Create; the explicit UpdateStatus call is
+	// kept for parity with a real API server's status subresource behavior.
+	_, err = backendUtils.XuanwuV1().StorageBackendContents().UpdateStatus(ctx, createdContent, metav1.UpdateOptions{})
 	require.NoError(t, err)
-}
-
-func writeKubeconfig(t *testing.T, data []byte, host string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "kubeconfig")
-	if len(data) > 0 {
-		require.NoError(t, os.WriteFile(path, data, 0o600))
-		return path
-	}
-	// envtest does not always expose KubeConfig; build one from the rest config.
-	kubeConfig := fmt.Sprintf(`apiVersion: v1
-kind: Config
-clusters:
-- name: envtest
-  cluster:
-    server: %s
-contexts:
-- name: envtest
-  context:
-    cluster: envtest
-    user: envtest
-current-context: envtest
-users:
-- name: envtest
-  user: {}
-`, host)
-	require.NoError(t, os.WriteFile(path, []byte(kubeConfig), 0o600))
-	return path
 }
